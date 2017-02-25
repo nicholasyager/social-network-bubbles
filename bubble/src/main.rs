@@ -141,8 +141,18 @@ fn main() {
     // Open the opinions file.
     let utc: DateTime<UTC> = UTC::now();
     let date_string = utc.format("%Y-%m-%dT%H:%M:%SZ").to_string();
+
     let mut opinion_file = File::create("simulation_".to_string() + &date_string + ".csv")
                             .expect("Unable to create file.");
+    let mut network_file = File::create("network_".to_string() + &date_string + ".csv")
+                            .expect("Unable to create file.");
+    let mut metadata_file = File::create("metadata_".to_string() + &date_string + ".csv")
+                            .expect("Unable to create file.");
+
+    write!(metadata_file, "{},{},{},{},{}\n", args.arg_population,
+	       args.arg_degree,	args.arg_rewire, args.arg_consensus, 
+           args.arg_opposition);
+
 
 
     // Generate the network
@@ -158,12 +168,24 @@ fn main() {
 		opinions.push(opinion_distribution.ind_sample(&mut rng).abs());
 	}
 
+    // Store the initial state of the matrix
+    for sender in 0..population {
+        for recipient in 0..sender {
+            let weight = social_network.get(sender, recipient);
+            if sender == recipient || weight == 0.0_f64 {
+                continue
+            }
+            write!(network_file, "0, {}, {}, {}\n", sender, recipient, weight);
+        }
+    }
+
+
 	// Simulation loop
 	// Here are the rule, every tick, we'll randomly pick a vertex and send a
 	// message to it's neighbors. The opinion of the message will reflect the
 	// opinions of the sender. Upon receiving the message, alter the reciever's
 	// opinion by some percent of the difference in opinion.
-	for tick in 0..max_time {
+	for tick in 1..max_time {
 		
 		let sender = rng.gen_range(0, population);
 		let message_distribution = Normal::new(opinions[sender], 10.0);
@@ -228,7 +250,9 @@ fn main() {
 
 
 			}
-
+            
+            write!(network_file, "{}, {}, {}, {}\n", tick, sender, 
+                   recipient, social_network.get(sender, recipient));
 
 		}
 
@@ -240,6 +264,7 @@ fn main() {
 				opinions[index] = 100.0;
 			}
 		}
+
 
 		for index in 0..population {
             write!(opinion_file, "{}, {}, {}\n", tick, index, opinions[index]);
